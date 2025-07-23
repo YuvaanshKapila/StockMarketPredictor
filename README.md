@@ -39,7 +39,7 @@ stock-price-predictor
 
 ## 1. Clone the repository
 
-git clone https://github.com/your-username/stock-price-predictor.git  
+git clone https://github.com/yuvaanshkapila/stock-price-predictor.git  
 cd stock-price-predictor
 
 ## 2. Create and activate a virtual environment
