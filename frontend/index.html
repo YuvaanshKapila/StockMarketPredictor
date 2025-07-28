@@ -110,7 +110,7 @@
 
   <form id="predictForm">
     <input type="text" id="ticker" placeholder="Ticker (e.g., AAPL)" required />
-    <input type="number" id="days" placeholder="Days to predict" min="1" max="60" value="10" required />
+    <input type="number" id="days" placeholder="Days to predict" min="1" max="10000" value="10" required />
     <button type="submit">Predict</button>
   </form>
 
@@ -129,8 +129,8 @@
       const ticker = document.getElementById('ticker').value.trim();
       const days = parseInt(document.getElementById('days').value);
 
-      if (!ticker || isNaN(days) || days < 1 || days > 60) {
-        alert('Please enter a valid ticker and days between 1 and 60.');
+      if (!ticker || isNaN(days) || days < 1 || days > 10000) {
+        alert('Please enter a valid ticker and days between 1 and 10000.');
         return;
       }
 
@@ -154,10 +154,10 @@
 
         const data = await response.json();
 
-        // Prepare datasets for chart
         const labels = data.test_dates.concat(data.future_dates);
         const actual = data.test_actual.concat(new Array(data.future_dates.length).fill(null));
-        const predicted = data.test_predicted.concat(data.future_predictions);
+        const predicted = new Array(data.test_dates.length).fill(null).concat(data.future_predictions);
+
 
         if (chart) chart.destroy();
 
