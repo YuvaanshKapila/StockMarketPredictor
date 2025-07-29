@@ -11,5 +11,5 @@ EXPOSE 5000
 EXPOSE 8501
 
 CMD ["python", "app.py"]
-# If you want to run a Streamlit app, comment the above line and uncomment below:
+# For Streamlit apps, comment above and uncomment below:
 # CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.enableCORS=false"]
