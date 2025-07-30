@@ -28,6 +28,7 @@ def serve_static(path):
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    print("Predict request received")
     data = request.get_json()
     ticker = data.get('ticker', '').upper()
     future_days = int(data.get('future_days', 30))
