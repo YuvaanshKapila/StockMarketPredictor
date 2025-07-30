@@ -6,6 +6,9 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 import tensorflow as tf
+import os
+import socket
+from waitress import serve
 
 app = Flask(__name__, static_folder='../frontend')
 
@@ -108,8 +111,17 @@ def predict():
     })
 
 if __name__ == '__main__':
-    print("Starting server...")
     physical_devices = tf.config.list_physical_devices('GPU')
     for device in physical_devices:
         tf.config.experimental.set_memory_growth(device, True)
-    app.run(host='0.0.0.0', port=41251, debug=True)
+
+    use_socket = os.environ.get("USE_SOCKET", "false").lower() == "true"
+    if use_socket:
+        sock_path = '/home/yuvaansh/yuvaansh.sock'
+        if os.path.exists(sock_path):
+            os.remove(sock_path)
+        print(f"Serving Flask via Unix socket at {sock_path}")
+        serve(app, unix_socket=sock_path)
+    else:
+        print("Serving Flask on 0.0.0.0:41251")
+        app.run(host='0.0.0.0', port=41251, debug=True)
