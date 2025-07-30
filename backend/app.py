@@ -6,7 +6,6 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 import tensorflow as tf
-import streamlit as st
 
 app = Flask(__name__, static_folder='../frontend')
 
