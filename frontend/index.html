@@ -154,10 +154,10 @@
 
         const data = await response.json();
 
+        // Prepare datasets for chart
         const labels = data.test_dates.concat(data.future_dates);
         const actual = data.test_actual.concat(new Array(data.future_dates.length).fill(null));
-        const predicted = new Array(data.test_dates.length).fill(null).concat(data.future_predictions);
-
+        const predicted = data.test_predicted.concat(data.future_predictions);
 
         if (chart) chart.destroy();
 
