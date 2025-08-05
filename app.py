@@ -3,25 +3,32 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
-import tensorflow as tf
+from tensorflow.keras.models import load_model
+import pickle
 import os
+import tensorflow as tf
 
 app = Flask(__name__)
 
 SEQ_LENGTH = 60
 
+# Load saved model and scaler once at startup
+MODEL_PATH = os.path.join('model', 'lstm_model.h5')
+SCALER_PATH = os.path.join('model', 'scaler.pkl')
+
+model = load_model(MODEL_PATH)
+with open(SCALER_PATH, 'rb') as f:
+    scaler = pickle.load(f)
+
 def create_sequences(data, seq_length):
-    X, y = [], []
+    X = []
     for i in range(seq_length, len(data)):
         X.append(data[i-seq_length:i, 0])
-        y.append(data[i, 0])
-    return np.array(X), np.array(y)
+    return np.array(X)
 
 @app.route('/')
 def serve_frontend():
-    return send_file('index.html')
+    return send_file('index.html')  
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -36,32 +43,27 @@ def predict():
     FEATURE = 'Close'
     data_vals = df[[FEATURE]].values.astype('float32')
 
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    data_scaled = scaler.fit_transform(data_vals)
+    # Scale using loaded scaler
+    data_scaled = scaler.transform(data_vals)
 
     if len(data_scaled) < SEQ_LENGTH:
-        return jsonify({'error': 'Not enough data to train the model'}), 400
+        return jsonify({'error': 'Not enough data to make predictions'}), 400
 
-    X, y = create_sequences(data_scaled, SEQ_LENGTH)
+    # Prepare sequences for test
+    X = create_sequences(data_scaled, SEQ_LENGTH)
     X = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
     split = int(0.8 * len(X))
-    X_train, y_train = X[:split], y[:split]
-    X_test, y_test = X[split:], y[split:]
+    X_test = X[split:]
+    y_test = data_scaled[SEQ_LENGTH + split:, 0]
 
-    model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(SEQ_LENGTH, 1), activation='relu'))
-    model.add(LSTM(units=50, return_sequences=False, activation='relu'))
-    model.add(Dense(units=1))
-    model.compile(optimizer='adam', loss='mean_squared_error')
-
-    model.fit(X_train, y_train, epochs=20, batch_size=32, validation_split=0.1, verbose=0)
-
+    # Predict on test data
     predicted_scaled = model.predict(X_test)
     predicted = scaler.inverse_transform(predicted_scaled)
     actual = scaler.inverse_transform(y_test.reshape(-1, 1))
     dates_test = df.index[SEQ_LENGTH + split:]
 
+    # Predict future days
     last_sequence = data_scaled[-SEQ_LENGTH:]
     future_scaled = []
 
