@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -6,7 +6,9 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 import tensorflow as tf
-app = Flask(__name__, static_folder='templates')
+import os
+
+app = Flask(__name__)
 
 SEQ_LENGTH = 60
 
@@ -19,11 +21,7 @@ def create_sequences(data, seq_length):
 
 @app.route('/')
 def serve_frontend():
-    return send_from_directory('templates', 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
+    return send_file('index.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
