@@ -3,100 +3,121 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Price Predictor</title>
+  <title>Stock Price Predictor with RSI & MACD</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Reset */
-    * {
-      box-sizing: border-box;
-    }
     body {
       background: #121212;
       color: #eee;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
       min-height: 100vh;
       align-items: center;
-      justify-content: flex-start;
-      padding-top: 50px;
+      padding: 20px;
     }
-
     h1 {
-      font-weight: 700;
-      font-size: 2.5rem;
-      margin-bottom: 15px;
-      letter-spacing: 2px;
       color: #61dafb;
       text-shadow: 0 0 5px #61dafb88;
+      margin-bottom: 10px;
     }
-
     form {
       display: flex;
       gap: 15px;
-      margin-bottom: 40px;
       flex-wrap: wrap;
       justify-content: center;
-      width: 100%;
       max-width: 600px;
+      margin-bottom: 30px;
     }
-
-    input[type="text"], input[type="number"] {
-      flex: 1 1 150px;
+    input, button {
       padding: 12px 16px;
       border-radius: 8px;
       border: none;
       font-size: 1.1rem;
       outline-offset: 3px;
-      transition: outline-color 0.3s ease;
+    }
+    input {
+      flex: 1 1 150px;
       background-color: #222;
       color: #eee;
       box-shadow: inset 0 0 5px #000;
     }
-    input[type="text"]:focus, input[type="number"]:focus {
+    input:focus {
       outline: 3px solid #61dafb;
     }
-
     button {
-      padding: 12px 30px;
-      font-size: 1.1rem;
-      border: none;
-      border-radius: 8px;
       background: #61dafb;
       color: #121212;
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 0 10px #61dafb88;
-      transition: background-color 0.3s ease, box-shadow 0.3s ease;
       flex: 0 0 auto;
+      transition: background-color 0.3s ease;
     }
     button:hover {
       background: #21a1f1;
       box-shadow: 0 0 15px #21a1f1cc;
     }
-
-    #chart-container {
-      width: 90vw;
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tab {
+      padding: 10px 20px;
+      border-radius: 30px;
+      background: #222;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      color: #bbb;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .tab.active {
+      background: #61dafb;
+      color: #121212;
+      box-shadow: 0 0 15px #61dafbcc;
+    }
+    #summary {
+      background: #1e1e1e;
+      padding: 15px 25px;
+      border-radius: 12px;
+      max-width: 600px;
+      text-align: center;
+      margin-bottom: 25px;
+      font-size: 1.1rem;
+      box-shadow: 0 0 20px #000000cc;
+    }
+    .chart-container {
       max-width: 900px;
+      width: 90vw;
       background: #1e1e1e;
       padding: 20px 30px;
       border-radius: 15px;
       box-shadow: 0 0 20px #000000cc;
+      margin-bottom: 30px;
+      display: none;
     }
-
     canvas {
-      display: block;
       max-width: 100%;
       height: 400px !important;
     }
-
+    #news-tab {
+      max-width: 900px;
+      width: 90vw;
+      background: #1e1e1e;
+      border-radius: 15px;
+      box-shadow: 0 0 20px #000000cc;
+      padding: 10px 20px;
+      display: none;
+      margin-bottom: 50px;
+    }
     /* Responsive */
     @media (max-width: 480px) {
       form {
         flex-direction: column;
-        gap: 12px;
       }
       button {
         width: 100%;
@@ -106,144 +127,292 @@
 </head>
 <body>
 
-  <h1>Stock Price Predictor</h1>
+  <h1>Stock Price Predictor with RSI & MACD</h1>
 
   <form id="predictForm">
     <input type="text" id="ticker" placeholder="Ticker (e.g., AAPL)" required />
     <input type="number" id="days" placeholder="Days to predict" min="1" max="10000" value="10" required />
     <button type="submit">Predict</button>
   </form>
+  <div id="loading-message" style="margin-top: 20px; color: #ccc; text-align: center;">
+    This program may take longer than expected... approximately 1 minute 30 seconds.
+  </div>
 
   <div id="chart-container" style="display:none;">
     <canvas id="chart"></canvas>
   </div>
 
-  <script>
-    const form = document.getElementById('predictForm');
-    const chartContainer = document.getElementById('chart-container');
-    const ctx = document.getElementById('chart').getContext('2d');
-    let chart;
+  <div id="summary"></div>
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const ticker = document.getElementById('ticker').value.trim();
-      const days = parseInt(document.getElementById('days').value);
+  <div class="tabs">
+    <div class="tab active" data-tab="price-tab">Price Prediction</div>
+    <div class="tab" data-tab="rsi-tab">RSI</div>
+    <div class="tab" data-tab="macd-tab">MACD</div>
+    <div class="tab" data-tab="news-tab">News</div>
+  </div>
 
-      if (!ticker || isNaN(days) || days < 1 || days > 10000) {
-        alert('Please enter a valid ticker and days between 1 and 10000.');
+  <div id="price-tab" class="chart-container" style="display:block;">
+    <canvas id="priceChart"></canvas>
+  </div>
+
+  <div id="rsi-tab" class="chart-container">
+    <canvas id="rsiChart"></canvas>
+  </div>
+
+  <div id="macd-tab" class="chart-container">
+    <canvas id="macdChart"></canvas>
+  </div>
+
+  <div id="news-tab">
+    <!-- TradingView Widget BEGIN -->
+    <div class="tradingview-widget-container">
+      <div id="tradingview_news"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
+      {
+      "feedMode": "all_symbols",
+      "colorTheme": "dark",
+      "isTransparent": false,
+      "displayMode": "regular",
+      "width": "100%",
+      "height": 600,
+      "locale": "en"
+      }
+      </script>
+    </div>
+    <!-- TradingView Widget END -->
+  </div>
+
+<script>
+  const form = document.getElementById('predictForm');
+  const summaryDiv = document.getElementById('summary');
+  const tabs = document.querySelectorAll('.tab');
+  const chartContainers = document.querySelectorAll('.chart-container, #news-tab');
+
+  let priceChart, rsiChart, macdChart;
+
+  // Tab switching logic
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      chartContainers.forEach(c => c.style.display = 'none');
+      document.getElementById(tab.dataset.tab).style.display = 'block';
+    });
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const ticker = document.getElementById('ticker').value.trim();
+    const days = parseInt(document.getElementById('days').value);
+
+    if (!ticker || isNaN(days) || days < 1 || days > 10000) {
+      alert('Please enter a valid ticker and days between 1 and 10000.');
+      return;
+    }
+
+    form.querySelector('button').disabled = true;
+    form.querySelector('button').textContent = 'Predicting...';
+
+    try {
+      const response = await fetch('/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ticker, future_days: days })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        alert('Error: ' + (err.error || 'Unknown error'));
+        form.querySelector('button').disabled = false;
+        form.querySelector('button').textContent = 'Predict';
         return;
       }
 
-      form.querySelector('button').disabled = true;
-      form.querySelector('button').textContent = 'Predicting...';
+      const data = await response.json();
 
-      try {
-        const response = await fetch('/predict', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ ticker, future_days: days })
-        });
+      // Show summary info
+      const formatPrice = (num) => (num !== undefined && num !== null) ? num.toFixed(2) : 'N/A';
 
-        if (!response.ok) {
-          const err = await response.json();
-          alert('Error: ' + (err.error || 'Unknown error'));
-          form.querySelector('button').disabled = false;
-          form.querySelector('button').textContent = 'Predict';
-          return;
-        }
+      summaryDiv.innerHTML = `
+        <p><strong>Symbol:</strong> ${data.symbol || 'N/A'}</p>
+        <p><strong>Latest Close Price:</strong> $${formatPrice(data.latest_close)}</p>
+        <p><strong>Support Level (30-day Low):</strong> $${formatPrice(data.support_30d)}</p>
+        <p><strong>Resistance Level (30-day High):</strong> $${formatPrice(data.resistance_30d)}</p>
+        <p style="font-size:0.85rem; color:#888; margin-top:10px;">
+          Note: Data from yfinance, conceptual ML predictions and indicators for ${data.symbol || 'N/A'}
+        </p>
+      `;
 
-        const data = await response.json();
+      // Price chart data
+      const priceLabels = data.test_dates.concat(data.future_dates);
+      const actualPrices = data.test_actual.concat(new Array(data.future_dates.length).fill(null));
+      const predictedPrices = data.test_predicted.concat(data.future_predictions);
 
-        // Prepare datasets for chart
-        const labels = data.test_dates.concat(data.future_dates);
-        const actual = data.test_actual.concat(new Array(data.future_dates.length).fill(null));
-        const predicted = data.test_predicted.concat(data.future_predictions);
+      const rsiLabels = data.test_dates || [];
+      const rsiValues = (data.rsi && data.rsi.slice) ? data.rsi.slice(-rsiLabels.length) : [];
 
-        if (chart) chart.destroy();
+      const macdLabels = data.test_dates || [];
+      const macd = data.macd || {};
+      const macdLine = (macd.macd && macd.macd.slice) ? macd.macd.slice(-macdLabels.length) : [];
+      const signalLine = (macd.signal && macd.signal.slice) ? macd.signal.slice(-macdLabels.length) : [];
+      const hist = (macd.histogram && macd.histogram.slice) ? macd.histogram.slice(-macdLabels.length) : [];
 
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'Actual Price',
-                data: actual,
-                borderColor: '#eee',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.1,
-              },
-              {
-                label: 'Predicted Price',
-                data: predicted,
-                borderColor: '#61dafb',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                borderDash: [6, 4],
-                pointRadius: 0,
-                tension: 0.1,
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            interaction: {
-              mode: 'index',
-              intersect: false,
+      // Destroy old charts if exist
+      if(priceChart) priceChart.destroy();
+      if(rsiChart) rsiChart.destroy();
+      if(macdChart) macdChart.destroy();
+
+      // Price Chart
+      priceChart = new Chart(document.getElementById('priceChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: priceLabels,
+          datasets: [
+            {
+              label: 'Actual Price',
+              data: actualPrices,
+              borderColor: '#eee',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1,
             },
-            scales: {
-              x: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Date',
-                  color: '#ccc',
-                  font: { size: 14, weight: 'bold' }
-                },
-                ticks: { color: '#bbb' },
-                grid: { color: '#333' }
-              },
-              y: {
-                display: true,
-                title: {
-                  display: true,
-                  text: 'Price ($)',
-                  color: '#ccc',
-                  font: { size: 14, weight: 'bold' }
-                },
-                ticks: { color: '#bbb' },
-                grid: { color: '#333' }
-              }
+            {
+              label: 'Test Predicted (Backtest)',
+              data: data.test_predicted.concat(new Array(data.future_dates.length).fill(null)),
+              borderColor: '#ffa500',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              borderDash: [4,4],
+              tension: 0.1,
             },
-            plugins: {
-              legend: {
-                labels: { color: '#eee', font: { size: 14 } }
-              },
-              tooltip: {
-                mode: 'nearest',
-                intersect: false,
-                backgroundColor: '#222',
-                titleColor: '#61dafb',
-                bodyColor: '#eee',
-                borderColor: '#61dafb',
-                borderWidth: 1,
-              }
+            {
+              label: 'Future Prediction',
+              data: new Array(data.test_dates.length).fill(null).concat(data.future_predictions),
+              borderColor: '#61dafb',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1,
             }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: {mode: 'index', intersect: false},
+          scales: {
+            x: { display: true, title: { display: true, text: 'Date', color: '#ccc', font: { size: 14, weight: 'bold' } }, ticks: { color: '#bbb' }, grid: { color: '#333' } },
+            y: { display: true, title: { display: true, text: 'Price ($)', color: '#ccc', font: { size: 14, weight: 'bold' } }, ticks: { color: '#bbb' }, grid: { color: '#333' } }
+          },
+          plugins: {
+            legend: { labels: { color: '#eee', font: { size: 14 } } },
+            tooltip: { backgroundColor: '#222', titleColor: '#61dafb', bodyColor: '#eee', borderColor: '#61dafb', borderWidth: 1 }
           }
-        });
+        }
+      });
 
-        chartContainer.style.display = 'block';
+      // RSI Chart
+      rsiChart = new Chart(document.getElementById('rsiChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: rsiLabels,
+          datasets: [{
+            label: 'RSI',
+            data: rsiValues,
+            borderColor: '#ffcc00',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              ticks: { color: '#bbb' },
+              grid: { color: '#333' },
+              title: { display: true, text: 'RSI Value', color: '#ccc', font: { size: 14, weight: 'bold' } }
+            },
+            x: {
+              ticks: { color: '#bbb' },
+              grid: { color: '#333' },
+              title: { display: true, text: 'Date', color: '#ccc', font: { size: 14, weight: 'bold' } }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#eee', font: { size: 14 } } }
+          }
+        }
+      });
 
-      } catch (err) {
-        alert('Unexpected error: ' + err.message);
-      } finally {
-        form.querySelector('button').disabled = false;
-        form.querySelector('button').textContent = 'Predict';
-      }
-    });
-  </script>
+      // MACD Chart
+      macdChart = new Chart(document.getElementById('macdChart').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: macdLabels,
+          datasets: [
+            {
+              label: 'MACD Line',
+              data: macdLine,
+              borderColor: '#61dafb',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1
+            },
+            {
+              label: 'Signal Line',
+              data: signalLine,
+              borderColor: '#ffcc00',
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.1
+            },
+            {
+              label: 'Histogram',
+              data: hist,
+              borderColor: '#ff3300',
+              backgroundColor: 'rgba(255, 51, 0, 0.3)',
+              borderWidth: 1,
+              pointRadius: 0,
+              type: 'bar'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              ticks: { color: '#bbb' },
+              grid: { color: '#333' },
+              title: { display: true, text: 'MACD', color: '#ccc', font: { size: 14, weight: 'bold' } }
+            },
+            x: {
+              ticks: { color: '#bbb' },
+              grid: { color: '#333' },
+              title: { display: true, text: 'Date', color: '#ccc', font: { size: 14, weight: 'bold' } }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#eee', font: { size: 14 } } }
+          }
+        }
+      });
+
+    } catch (err) {
+      alert('Unexpected error: ' + err.message);
+    } finally {
+      form.querySelector('button').disabled = false;
+      form.querySelector('button').textContent = 'Predict';
+    }
+  });
+</script>
 
 </body>
 </html>
