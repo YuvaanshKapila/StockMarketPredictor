@@ -24,11 +24,7 @@ def create_sequences(data, seq_length):
 
 def train_model(ticker):
     global MODEL, SCALER, DATES_TEST, ACTUAL, PREDICTED
-
-    print(f"Downloading data for {ticker}...")
     df = yf.download(ticker, start='2010-01-01', auto_adjust=False)
-    if df.empty:
-        raise ValueError("Failed to download stock data")
 
     FEATURE = 'Close'
     data_vals = df[[FEATURE]].values.astype('float32')
@@ -42,8 +38,6 @@ def train_model(ticker):
     split = int(0.8 * len(X))
     X_train, y_train = X[:split], y[:split]
     X_test, y_test = X[split:], y[split:]
-
-    print(f"Training shape: X={X_train.shape}, y={y_train.shape}")
 
     MODEL = Sequential([
         Input(shape=(SEQ_LENGTH, 1)),
@@ -59,7 +53,8 @@ def train_model(ticker):
     ACTUAL = SCALER.inverse_transform(y_test.reshape(-1, 1))
     DATES_TEST = df.index[SEQ_LENGTH + split:]
 
-    print(f"Model trained and ready. Test size: {len(DATES_TEST)}")
+# Train on startup with a default ticker
+train_model("AAPL")
 
 @app.route('/')
 def serve_frontend():
@@ -72,17 +67,8 @@ def serve_static(path):
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        if MODEL is None or SCALER is None or ACTUAL is None or PREDICTED is None:
-            return jsonify({'error': 'Model not trained yet'}), 500
-
         data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Invalid or missing JSON payload'}), 400
-
         future_days = int(data.get('future_days', 30))
-
-        if len(ACTUAL) < SEQ_LENGTH:
-            return jsonify({'error': 'Not enough historical data for prediction'}), 400
 
         last_sequence = SCALER.transform(ACTUAL)[-SEQ_LENGTH:]
         future_scaled = []
@@ -110,14 +96,7 @@ def predict():
         })
 
     except Exception as e:
-        print("Error during /predict:", e)
         return jsonify({'error': str(e)}), 500
-
-# Train model on startup with default ticker
-try:
-    train_model("AAPL")
-except Exception as e:
-    print("Startup training failed:", e)
 
 # Optional: prevent GPU crash warnings
 try:
@@ -126,5 +105,3 @@ try:
         tf.config.experimental.set_memory_growth(device, True)
 except:
     pass
-
-
