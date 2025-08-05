@@ -152,16 +152,7 @@
           return;
         }
 
-        let data;
-        const contentType = response.headers.get('content-type');
-        
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await response.text();
-          alert("Server error:\n" + text);
-          throw new Error("Expected JSON, got: " + contentType);
-        }
-        
-        data = await response.json();
+        const data = await response.json();
 
         // Prepare datasets for chart
         const labels = data.test_dates.concat(data.future_dates);
@@ -255,5 +246,4 @@
   </script>
 
 </body>
-
 </html>

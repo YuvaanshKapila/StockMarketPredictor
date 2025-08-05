@@ -6,8 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 import tensorflow as tf
-
-app = Flask(__name__, static_folder='../templates')
+app = Flask(__name__, static_folder='templates')
 
 SEQ_LENGTH = 60
 
@@ -20,7 +19,7 @@ def create_sequences(data, seq_length):
 
 @app.route('/')
 def serve_frontend():
-    return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory('templates', 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
@@ -89,12 +88,10 @@ def predict():
         'test_actual': actual.flatten().tolist(),
         'test_predicted': predicted.flatten().tolist()
     })
+
 if __name__ == '__main__':
     physical_devices = tf.config.list_physical_devices('GPU')
     for device in physical_devices:
         tf.config.experimental.set_memory_growth(device, True)
 
-    app.run(host='0.0.0.0', port=39107)
-
-
-
+    app.run()
