@@ -5,7 +5,7 @@ import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
-
+import tensorflow as tf
 app = Flask(__name__, static_folder='templates')
 
 SEQ_LENGTH = 60
@@ -89,6 +89,9 @@ def predict():
         'test_predicted': predicted.flatten().tolist()
     })
 
-# REMOVE app.run() for Render:
-# Render uses gunicorn, so leave it out.
+if __name__ == '__main__':
+    physical_devices = tf.config.list_physical_devices('GPU')
+    for device in physical_devices:
+        tf.config.experimental.set_memory_growth(device, True)
 
+    app.run()
