@@ -4,7 +4,7 @@ import pandas as pd
 import yfinance as yf
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.layers import Input, LSTM, Dense
 import tensorflow as tf
 
 app = Flask(__name__, static_folder='templates')
@@ -33,7 +33,7 @@ def predict():
         ticker = data.get('ticker', '').upper()
         future_days = int(data.get('future_days', 30))
 
-        df = yf.download(ticker, start='2010-01-01')
+        df = yf.download(ticker, start='2010-01-01', auto_adjust=False)
         if df.empty:
             return jsonify({'error': 'Invalid ticker or no data found'}), 400
 
@@ -54,7 +54,8 @@ def predict():
         X_test, y_test = X[split:], y[split:]
 
         model = Sequential()
-        model.add(LSTM(units=50, return_sequences=True, input_shape=(SEQ_LENGTH, 1), activation='relu'))
+        model.add(Input(shape=(SEQ_LENGTH, 1)))
+        model.add(LSTM(units=50, return_sequences=True, activation='relu'))
         model.add(LSTM(units=50, return_sequences=False, activation='relu'))
         model.add(Dense(units=1))
         model.compile(optimizer='adam', loss='mean_squared_error')
@@ -94,9 +95,10 @@ def predict():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
+# Optional: GPU memory handling (safe to include)
 physical_devices = tf.config.list_physical_devices('GPU')
 for device in physical_devices:
-    tf.config.experimental.set_memory_growth(device, True)
-
-
+    try:
+        tf.config.experimental.set_memory_growth(device, True)
+    except:
+        pass  # Continue if the GPU setup fails silently
