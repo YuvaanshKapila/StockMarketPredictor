@@ -127,5 +127,9 @@ try:
 except:
     pass
 
-if __name__ == '__main__':
-    app.run(debug=True)
+physical_devices = tf.config.list_physical_devices('GPU')
+for device in physical_devices:
+    try:
+        tf.config.experimental.set_memory_growth(device, True)
+    except:
+        pass  # Continue if the GPU setup fails silently
