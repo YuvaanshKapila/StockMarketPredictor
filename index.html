@@ -179,21 +179,19 @@
 
   <h1>Stock Price Predictor & Analysis</h1>
 
-  <!-- Prediction form -->
   <div class="flex-row" style="width:100%; max-width:900px;">
     <form id="predictForm" style="flex:1;">
       <input type="text" id="ticker" placeholder="Ticker (e.g., AAPL)" required />
-      <input type="number" id="days" placeholder="Days to predict" min="1" max="10000" value="30" required />
+      <input type="number" id="days" placeholder="Days to predict" min="1" max="10000" value="10" required />
       <button type="submit">Predict</button>
     </form>
     <div style="display:flex; align-items:center; gap:10px;">
       <div id="loading-message" style="color:#ccc; font-size:.9rem;">
-        Predictions may take ~1m30s.
+        Predictions may take ~2m30s.
       </div>
     </div>
   </div>
 
-  <!-- Summary & Analysis -->
   <div id="summary">
     <div><strong>Summary:</strong> Enter a ticker and hit Predict to see price, indicators, and forecast.</div>
   </div>
@@ -201,11 +199,9 @@
   <div id="analysis">
     <div style="font-weight:700; margin-bottom:6px;">Stock Analysis</div>
     <div class="analysis-row" id="analysis-metrics">
-      <!-- populated dynamically -->
-    </div>
+      </div>
   </div>
 
-  <!-- Tabs -->
   <div class="tabs">
     <div class="tab active" data-tab="price-tab">Price Prediction</div>
     <div class="tab" data-tab="rsi-tab">RSI</div>
@@ -213,7 +209,6 @@
     <div class="tab" data-tab="news-tab">News</div>
   </div>
 
-  <!-- Charts -->
   <div id="price-tab" class="chart-container" style="display:block;">
     <canvas id="priceChart"></canvas>
   </div>
@@ -224,13 +219,10 @@
     <canvas id="macdChart"></canvas>
   </div>
 
-  <!-- News -->
   <div id="news-tab">
     <h2 style="margin-top:0; color:#61dafb;">Real-Time News</h2>
-    <!-- TradingView Widget BEGIN -->
     <div class="tradingview-widget-container">
       <div id="tradingview_news"></div>
-      <!-- Correct embed: separate config script -->
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async></script>
       <script type="application/json" class="tradingview-widget-config">
       {
@@ -244,10 +236,8 @@
       }
       </script>
     </div>
-    <!-- TradingView Widget END -->
-  </div>
+    </div>
 
-  <!-- Watchlist -->
   <div id="watchlist-section">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div style="font-size:1.4rem; font-weight:700; color:#61dafb;">📊 Watchlist</div>
@@ -259,7 +249,6 @@
     <div id="watchlist"></div>
   </div>
 
-  <!-- Templates hidden -->
   <template id="watchlist-card-template">
     <div class="watchlist-card">
       <div style="display:flex; justify-content: space-between; align-items:center;">
@@ -272,8 +261,7 @@
         <small class="price"></small>
         <small class="change"></small>
       </div>
-      <canvas class="inline-chart"></canvas>
-    </div>
+      </div>
   </template>
 
   <script>
@@ -458,15 +446,16 @@
 
     async function fetchQuoteSummary(symbol) {
       try {
-        const resp = await fetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`);
-        const js = await resp.json();
-        if (js.quoteResponse && js.quoteResponse.result && js.quoteResponse.result[0]) {
-          return js.quoteResponse.result[0];
+        const resp = await fetch(`/api/yahoo-quote?symbol=${symbol}`);
+        if (!resp.ok) {
+          throw new Error('Failed to fetch quote');
         }
+        const data = await resp.json();
+        return data;
       } catch (e) {
         console.warn('Quote fetch failed', e);
+        return null;
       }
-      return null;
     }
 
     watchlistForm.addEventListener('submit', async (e) => {
@@ -475,66 +464,36 @@
       if (!symbol) return;
       watchlistInput.value = '';
 
-      // create card
       const card = template.content.cloneNode(true);
       const container = card.querySelector('.watchlist-card');
       const symEl = card.querySelector('.symbol');
       const priceEl = card.querySelector('.price');
       const changeEl = card.querySelector('.change');
       const analyzeBtn = card.querySelector('.analyze-btn');
-      const inlineCanvas = card.querySelector('canvas');
-      const ctx = inlineCanvas.getContext('2d');
 
       symEl.textContent = symbol;
       priceEl.textContent = 'Loading...';
 
-      // Fetch summary and last month data for sparkline
       try {
-        // quote summary (marketcap, price, peRatio etc.)
         const summary = await fetchQuoteSummary(symbol);
-        const regularPrice = summary?.regularMarketPrice;
-        const previousClose = summary?.regularMarketPreviousClose;
-        const changePct = regularPrice && previousClose ? ((regularPrice - previousClose)/previousClose*100).toFixed(2) : '0.00';
-        priceEl.textContent = `$${formatPrice(regularPrice)}`;
-        changeEl.textContent = `Δ ${changePct}%`;
+        
+        if (summary) {
+          const regularPrice = summary.currentPrice;
+          const previousClose = summary.previousClose;
+          const changePct = regularPrice && previousClose ? ((regularPrice - previousClose)/previousClose*100).toFixed(2) : '0.00';
+          priceEl.textContent = `$${formatPrice(regularPrice)}`;
+          changeEl.textContent = `Δ ${changePct}%`;
 
-        // small sparkline from Yahoo chart API (1 month daily)
-        const chartResp = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`);
-        const chartJson = await chartResp.json();
-        const closes = chartJson.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-        const timestamps = chartJson.chart?.result?.[0]?.timestamp || [];
-        const labels = timestamps.map(ts => {
-          const d = new Date(ts * 1000);
-          return `${d.getMonth()+1}/${d.getDate()}`;
-        });
-
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{
-              data: closes,
-              borderColor: '#61dafb',
-              backgroundColor: 'transparent',
-              borderWidth: 1.5,
-              pointRadius: 0,
-              tension: 0.25,
-              fill: false
-            }]
-          },
-          options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-              x: { display: false },
-              y: { display: false }
-            },
-            interaction: { mode: 'nearest', intersect: false },
-            elements: { line: { capStyle: 'round' } }
+          if (changePct > 0) {
+            changeEl.style.color = '#33cc33';
+          } else if (changePct < 0) {
+            changeEl.style.color = '#ff3333';
           }
-        });
+        } else {
+          priceEl.textContent = 'Error';
+          changeEl.textContent = '';
+        }
 
-        // analyze button fills main form and triggers prediction
         analyzeBtn.addEventListener('click', () => {
           document.getElementById('ticker').value = symbol;
           form.requestSubmit();
