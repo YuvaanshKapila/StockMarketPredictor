@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Price Predictor with RSI, MACD & Watchlist</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      background: #121212;
+      color: #eee;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px 10px 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      color: #61dafb;
+      text-shadow: 0 0 5px #61dafb88;
+      margin: 5px 0 15px;
+      font-size: 2rem;
+    }
+    .flex-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    form, .watchlist-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 900px;
+      width: 100%;
+    }
+    input[type="text"], input[type="number"] {
+      flex: 1 1 150px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #222;
+      color: #eee;
+      font-size: 1rem;
+      outline-offset: 3px;
+      box-shadow: inset 0 0 8px #000;
+      transition: outline 0.2s ease;
+    }
+    input:focus { outline: 3px solid #61dafb; }
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 1rem;
+      background: #61dafb;
+      color: #121212;
+      box-shadow: 0 0 15px #61dafb88;
+      transition: transform .1s ease, background .2s ease;
+    }
+    button:hover { background: #21a1f1; transform: translateY(-1px); }
+    #summary, #analysis {
+      background: #1e1e1e;
+      padding: 18px 25px;
+      border-radius: 12px;
+      max-width: 900px;
+      width: 100%;
+      box-shadow: 0 0 20px #000000cc;
+      margin: 15px 0;
+      font-size: 0.95rem;
+      line-height: 1.3;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tab {
+      padding: 10px 18px;
+      border-radius: 30px;
+      background: #222;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      color: #bbb;
+      transition: all .25s ease;
+    }
+    .tab.active {
+      background: #61dafb;
+      color: #121212;
+      box-shadow: 0 0 18px #61dafbcc;
+    }
+    .chart-container {
+      max-width: 1000px;
+      width: 100%;
+      background: #1e1e1e;
+      padding: 20px 25px;
+      border-radius: 15px;
+      box-shadow: 0 0 25px #000000cc;
+      margin-bottom: 30px;
+      display: none;
+    }
+    canvas {
+      max-width: 100%;
+      height: 350px !important;
+    }
+    #watchlist-section {
+      max-width: 1000px;
+      width: 100%;
+      margin: 30px 0 10px;
+    }
+    #watchlist {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .watchlist-card {
+      background: #1f1f1f;
+      border-radius: 12px;
+      padding: 12px 14px;
+      position: relative;
+      box-shadow: 0 0 15px #000000aa;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .watchlist-card small {
+      display: block;
+      color: #999;
+    }
+    .inline-chart {
+      width: 100%;
+      height: 80px;
+      margin-top: 6px;
+    }
+    .analysis-row {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .metric {
+      background: #222;
+      padding: 10px 15px;
+      border-radius: 8px;
+      flex: 1 1 140px;
+      min-width: 140px;
+      font-size: .85rem;
+    }
+    #news-tab {
+      max-width: 900px;
+      width: 100%;
+      background: #1e1e1e;
+      border-radius: 15px;
+      box-shadow: 0 0 20px #000000cc;
+      padding: 10px 20px;
+      margin-bottom: 40px;
+    }
+    .label-tag {
+      background: #333;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: .6rem;
+      margin-right: 6px;
+    }
+    @media (max-width: 800px) {
+      .analysis-row { flex-direction: column; }
+      #watchlist { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Stock Price Predictor & Analysis</h1>
+
+  <div class="flex-row" style="width:100%; max-width:900px;">
+    <form id="predictForm" style="flex:1;">
+      <input type="text" id="ticker" placeholder="Ticker (e.g., AAPL)" required />
+      <input type="number" id="days" placeholder="Days to predict" min="1" max="10000" value="10" required />
+      <button type="submit">Predict</button>
+    </form>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <div id="loading-message" style="color:#ccc; font-size:.9rem;">
+        Predictions may take ~2m30s.
+      </div>
+    </div>
+  </div>
+
+  <div id="summary">
+    <div><strong>Summary:</strong> Enter a ticker and hit Predict to see price, indicators, and forecast.</div>
+  </div>
+
+  <div id="analysis">
+    <div style="font-weight:700; margin-bottom:6px;">Stock Analysis</div>
+    <div class="analysis-row" id="analysis-metrics">
+      </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="price-tab">Price Prediction</div>
+    <div class="tab" data-tab="rsi-tab">RSI</div>
+    <div class="tab" data-tab="macd-tab">MACD</div>
+    <div class="tab" data-tab="news-tab">News</div>
+  </div>
+
+  <div id="price-tab" class="chart-container" style="display:block;">
+    <canvas id="priceChart"></canvas>
+  </div>
+  <div id="rsi-tab" class="chart-container">
+    <canvas id="rsiChart"></canvas>
+  </div>
+  <div id="macd-tab" class="chart-container">
+    <canvas id="macdChart"></canvas>
+  </div>
+
+  <div id="news-tab">
+    <h2 style="margin-top:0; color:#61dafb;">Real-Time News</h2>
+    <div class="tradingview-widget-container">
+      <div id="tradingview_news"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async></script>
+      <script type="application/json" class="tradingview-widget-config">
+      {
+        "feedMode": "all_symbols",
+        "colorTheme": "dark",
+        "isTransparent": false,
+        "displayMode": "regular",
+        "width": "100%",
+        "height": 600,
+        "locale": "en"
+      }
+      </script>
+    </div>
+    </div>
+
+  <div id="watchlist-section">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div style="font-size:1.4rem; font-weight:700; color:#61dafb;">📊 Watchlist</div>
+      <form id="watchlistForm" class="watchlist-controls">
+        <input type="text" id="watchlistInput" placeholder="Add ticker e.g. MSFT" required />
+        <button type="submit">+ Add</button>
+      </form>
+    </div>
+    <div id="watchlist"></div>
+  </div>
+
+  <template id="watchlist-card-template">
+    <div class="watchlist-card">
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <div class="symbol" style="font-size:1.1rem; font-weight:700;"></div>
+        <div>
+          <button class="analyze-btn" style="padding:4px 10px; font-size:.7rem; border-radius:6px;">Analyze</button>
+        </div>
+      </div>
+      <div class="mini-summary">
+        <small class="price"></small>
+        <small class="change"></small>
+      </div>
+      </div>
+  </template>
+
+  <script>
+    // Tab logic
+    const tabs = document.querySelectorAll('.tab');
+    const chartContainers = document.querySelectorAll('.chart-container, #news-tab');
+
+    tabs.forEach(t => {
+      t.addEventListener('click', () => {
+        tabs.forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        chartContainers.forEach(c => c.style.display = 'none');
+        document.getElementById(t.dataset.tab).style.display = 'block';
+      });
+    });
+
+    // Helpers
+    const formatPrice = (num) => (num !== undefined && num !== null && !isNaN(num)) ? Number(num).toFixed(2) : 'N/A';
+    const pct = (a, b) => (b && a!=null) ? (((a - b)/b)*100).toFixed(2) : '0.00';
+
+    // Main charts
+    let priceChart, rsiChart, macdChart;
+
+    const summaryDiv = document.getElementById('summary');
+    const analysisMetrics = document.getElementById('analysis-metrics');
+
+    // Prediction form
+    const form = document.getElementById('predictForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+      const days = parseInt(document.getElementById('days').value);
+      if (!ticker || isNaN(days) || days < 1 || days > 10000) {
+        alert('Enter valid ticker & days (1–10000)');
+        return;
+      }
+      form.querySelector('button').disabled = true;
+      form.querySelector('button').textContent = 'Predicting...';
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ticker, future_days: days})
+        });
+        if (!res.ok) {
+          const ejson = await res.json();
+          alert('Error: '+ (ejson.error || 'unknown'));
+          return;
+        }
+        const data = await res.json();
+
+        // Summary
+        summaryDiv.innerHTML = `
+          <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between;">
+            <div>
+              <div><strong>Symbol:</strong> ${data.symbol || 'N/A'}</div>
+              <div><strong>Latest Close:</strong> $${formatPrice(data.latest_close)}</div>
+              <div><strong>Support (30d):</strong> $${formatPrice(data.support_30d)}</div>
+              <div><strong>Resistance (30d):</strong> $${formatPrice(data.resistance_30d)}</div>
+            </div>
+            <div style="text-align:right; font-size:.85rem;">
+              Note: Data from yfinance, conceptual ML predictions and indicators for ${data.symbol || 'N/A'}
+            </div>
+          </div>
+        `;
+
+        // Analysis metrics: basic derived values
+        const lastActual = (data.test_actual && data.test_actual.length) ? data.test_actual.slice(-1)[0] : null;
+        const lastPred = (data.test_predicted && data.test_predicted.length) ? data.test_predicted.slice(-1)[0] : null;
+        const futureFirst = (data.future_predictions && data.future_predictions.length) ? data.future_predictions[0] : null;
+
+        analysisMetrics.innerHTML = `
+          <div class="metric"><div class="label-tag">Backtest vs Actual</div><div>Last actual: $${formatPrice(lastActual)}</div><div>Last predicted: $${formatPrice(lastPred)}</div></div>
+          <div class="metric"><div class="label-tag">Forecast</div><div>Next day est: $${formatPrice(futureFirst)}</div></div>
+        `;
+
+        // Price chart datasets (backtest vs future)
+        const priceLabels = (data.test_dates || []).concat(data.future_dates || []);
+        const actualPrices = (data.test_actual || []).concat(new Array((data.future_dates || []).length).fill(null));
+        const predictedPast = (data.test_predicted || []).concat(new Array((data.future_dates || []).length).fill(null));
+        const predictedFuture = new Array((data.test_dates || []).length).fill(null).concat(data.future_predictions || []);
+
+        // RSI / MACD safe slices
+        const testDates = data.test_dates || [];
+        const rsiValues = Array.isArray(data.rsi) ? data.rsi.slice(-testDates.length) : [];
+        const macdObj = data.macd || {};
+        const macdLine = Array.isArray(macdObj.macd) ? macdObj.macd.slice(-testDates.length) : [];
+        const signalLine = Array.isArray(macdObj.signal) ? macdObj.signal.slice(-testDates.length) : [];
+        const hist = Array.isArray(macdObj.histogram) ? macdObj.histogram.slice(-testDates.length) : [];
+
+        // Destroy existing
+        if (priceChart) priceChart.destroy();
+        if (rsiChart) rsiChart.destroy();
+        if (macdChart) macdChart.destroy();
+
+        // Price chart
+        priceChart = new Chart(document.getElementById('priceChart').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: priceLabels,
+            datasets: [
+              { label: 'Actual', data: actualPrices, borderColor:'#eee', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.1 },
+              { label: 'Backtest Predicted', data: predictedPast, borderColor:'#ffa500', backgroundColor:'transparent', borderWidth:2, pointRadius:0, borderDash:[4,4], tension:0.1 },
+              { label: 'Future Forecast', data: predictedFuture, borderColor:'#61dafb', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.1 }
+            ]
+          },
+          options: {
+            responsive:true,
+            interaction:{mode:'index', intersect:false},
+            scales:{
+              x:{ ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'Date', color:'#ccc', font:{ size:14, weight:'bold' } } },
+              y:{ ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'Price ($)', color:'#ccc', font:{ size:14, weight:'bold' } } }
+            },
+            plugins:{
+              legend:{ labels:{ color:'#eee' } },
+              tooltip:{ backgroundColor:'#222', titleColor:'#61dafb', bodyColor:'#eee', borderColor:'#61dafb', borderWidth:1 }
+            }
+          }
+        });
+
+        // RSI chart
+        rsiChart = new Chart(document.getElementById('rsiChart').getContext('2d'), {
+          type:'line',
+          data:{
+            labels:testDates,
+            datasets:[{
+              label:'RSI',
+              data:rsiValues,
+              borderColor:'#ffcc00',
+              backgroundColor:'transparent',
+              borderWidth:2,
+              pointRadius:0,
+              tension:0.1
+            }]
+          },
+          options:{
+            responsive:true,
+            scales:{
+              x:{ ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'Date', color:'#ccc', font:{ size:14, weight:'bold' } } },
+              y:{ min:0, max:100, ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'RSI', color:'#ccc', font:{ size:14, weight:'bold' } } }
+            },
+            plugins:{ legend:{ labels:{ color:'#eee' } } }
+          }
+        });
+
+        // MACD chart
+        macdChart = new Chart(document.getElementById('macdChart').getContext('2d'), {
+          type:'bar',
+          data:{
+            labels:testDates,
+            datasets:[
+              { type:'line', label:'MACD', data:macdLine, borderColor:'#61dafb', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.1 },
+              { type:'line', label:'Signal', data:signalLine, borderColor:'#ffcc00', backgroundColor:'transparent', borderWidth:2, pointRadius:0, tension:0.1 },
+              { type:'bar', label:'Histogram', data:hist, borderColor:'#ff3300', backgroundColor:'rgba(255,51,0,0.3)', borderWidth:1 }
+            ]
+          },
+          options:{
+            responsive:true,
+            interaction:{mode:'index', intersect:false},
+            scales:{
+              x:{ ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'Date', color:'#ccc', font:{ size:14, weight:'bold' } } },
+              y:{ ticks:{ color:'#bbb' }, grid:{ color:'#333' }, title:{ display:true, text:'MACD', color:'#ccc', font:{ size:14, weight:'bold' } } }
+            },
+            plugins:{ legend:{ labels:{ color:'#eee' } } }
+          }
+        });
+
+      } catch (err) {
+        alert('Unexpected error: ' + err.message);
+      } finally {
+        form.querySelector('button').disabled = false;
+        form.querySelector('button').textContent = 'Predict';
+      }
+    });
+
+    // Watchlist logic
+    const watchlistForm = document.getElementById('watchlistForm');
+    const watchlistInput = document.getElementById('watchlistInput');
+    const watchlistContainer = document.getElementById('watchlist');
+    const template = document.getElementById('watchlist-card-template');
+
+    async function fetchQuoteSummary(symbol) {
+      try {
+        const resp = await fetch(`/api/yahoo-quote?symbol=${symbol}`);
+        if (!resp.ok) {
+          throw new Error('Failed to fetch quote');
+        }
+        const data = await resp.json();
+        return data;
+      } catch (e) {
+        console.warn('Quote fetch failed', e);
+        return null;
+      }
+    }
+
+    watchlistForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const symbol = watchlistInput.value.trim().toUpperCase();
+      if (!symbol) return;
+      watchlistInput.value = '';
+
+      const card = template.content.cloneNode(true);
+      const container = card.querySelector('.watchlist-card');
+      const symEl = card.querySelector('.symbol');
+      const priceEl = card.querySelector('.price');
+      const changeEl = card.querySelector('.change');
+      const analyzeBtn = card.querySelector('.analyze-btn');
+
+      symEl.textContent = symbol;
+      priceEl.textContent = 'Loading...';
+
+      try {
+        const summary = await fetchQuoteSummary(symbol);
+        
+        if (summary) {
+          const regularPrice = summary.currentPrice;
+          const previousClose = summary.previousClose;
+          const changePct = regularPrice && previousClose ? ((regularPrice - previousClose)/previousClose*100).toFixed(2) : '0.00';
+          priceEl.textContent = `$${formatPrice(regularPrice)}`;
+          changeEl.textContent = `Δ ${changePct}%`;
+
+          if (changePct > 0) {
+            changeEl.style.color = '#33cc33';
+          } else if (changePct < 0) {
+            changeEl.style.color = '#ff3333';
+          }
+        } else {
+          priceEl.textContent = 'Error';
+          changeEl.textContent = '';
+        }
+
+        analyzeBtn.addEventListener('click', () => {
+          document.getElementById('ticker').value = symbol;
+          form.requestSubmit();
+        });
+
+      } catch (err) {
+        priceEl.textContent = 'Error';
+        changeEl.textContent = '';
+        console.warn('Watchlist load error', err);
+      }
+
+      watchlistContainer.appendChild(card);
+    });
+  </script>
+
+</body>
+</html>
