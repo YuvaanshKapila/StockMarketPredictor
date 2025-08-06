@@ -9,7 +9,9 @@ The backend is built with Flask and TensorFlow, while the frontend uses HTML, CS
 - Historical stock data is fetched using yfinance  
 - LSTM model is trained in real time for predictions  
 - Prediction results are plotted and displayed in the frontend  
-- Clean frontend with separate HTML, CSS, and JS files
+- Has a watch list(new)
+- Has a RSI and a MACD(new)
+- Has real time news through trading view
 
 # Technologies
 
