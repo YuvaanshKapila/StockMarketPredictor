@@ -1,4 +1,3 @@
-# --- unchanged imports and setup ---
 from flask import Flask, request, jsonify, send_from_directory
 import numpy as np
 import pandas as pd
@@ -16,7 +15,7 @@ def create_sequences(data, seq_length, future_days):
     X, y = [], []
     for i in range(seq_length, len(data) - future_days):
         X.append(data[i - seq_length:i])
-        y.append(data[i:i + future_days, 0])  # Predict future_days of log_close
+        y.append(data[i:i + future_days, 0])  
     return np.array(X), np.array(y)
 
 def calculate_macd(series, short_span=12, long_span=26, signal_span=9):
@@ -111,7 +110,6 @@ def predict():
         'rsi': rsi
     }).dropna()
 
-    # Separate scalers
     scaler_log_close = MinMaxScaler()
     scaler_macd = MinMaxScaler()
     scaler_rsi = MinMaxScaler()
@@ -144,13 +142,11 @@ def predict():
     actual = np.exp(actual_log[:, 0])
     dates_test = features.index[SEQ_LENGTH + split:SEQ_LENGTH + split + len(actual)]
 
-    # --- Future Forecast ---
     last_sequence = scaled[-SEQ_LENGTH:]
     future_scaled = model.predict(last_sequence.reshape(1, SEQ_LENGTH, X.shape[2]), verbose=0)[0]
     future_log = scaler_log_close.inverse_transform(future_scaled.reshape(-1, 1)).flatten()
     future_predictions = np.exp(future_log)
 
-    # Clamp future predictions to ±50% of latest close
     min_price = latest_close * 0.5
     max_price = latest_close * 1.5
     future_predictions = np.clip(future_predictions, min_price, max_price)
@@ -180,3 +176,4 @@ if __name__ == '__main__':
     for device in physical_devices:
         tf.config.experimental.set_memory_growth(device, True)
     app.run(debug=True)
+
