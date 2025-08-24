@@ -265,7 +265,6 @@
   </template>
 
   <script>
-    // Tab logic
     const tabs = document.querySelectorAll('.tab');
     const chartContainers = document.querySelectorAll('.chart-container, #news-tab');
 
@@ -278,17 +277,14 @@
       });
     });
 
-    // Helpers
     const formatPrice = (num) => (num !== undefined && num !== null && !isNaN(num)) ? Number(num).toFixed(2) : 'N/A';
     const pct = (a, b) => (b && a!=null) ? (((a - b)/b)*100).toFixed(2) : '0.00';
 
-    // Main charts
     let priceChart, rsiChart, macdChart;
 
     const summaryDiv = document.getElementById('summary');
     const analysisMetrics = document.getElementById('analysis-metrics');
 
-    // Prediction form
     const form = document.getElementById('predictForm');
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -314,7 +310,6 @@
         }
         const data = await res.json();
 
-        // Summary
         summaryDiv.innerHTML = `
           <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between;">
             <div>
@@ -329,7 +324,6 @@
           </div>
         `;
 
-        // Analysis metrics: basic derived values
         const lastActual = (data.test_actual && data.test_actual.length) ? data.test_actual.slice(-1)[0] : null;
         const lastPred = (data.test_predicted && data.test_predicted.length) ? data.test_predicted.slice(-1)[0] : null;
         const futureFirst = (data.future_predictions && data.future_predictions.length) ? data.future_predictions[0] : null;
@@ -339,13 +333,11 @@
           <div class="metric"><div class="label-tag">Forecast</div><div>Next day est: $${formatPrice(futureFirst)}</div></div>
         `;
 
-        // Price chart datasets (backtest vs future)
         const priceLabels = (data.test_dates || []).concat(data.future_dates || []);
         const actualPrices = (data.test_actual || []).concat(new Array((data.future_dates || []).length).fill(null));
         const predictedPast = (data.test_predicted || []).concat(new Array((data.future_dates || []).length).fill(null));
         const predictedFuture = new Array((data.test_dates || []).length).fill(null).concat(data.future_predictions || []);
 
-        // RSI / MACD safe slices
         const testDates = data.test_dates || [];
         const rsiValues = Array.isArray(data.rsi) ? data.rsi.slice(-testDates.length) : [];
         const macdObj = data.macd || {};
@@ -353,12 +345,10 @@
         const signalLine = Array.isArray(macdObj.signal) ? macdObj.signal.slice(-testDates.length) : [];
         const hist = Array.isArray(macdObj.histogram) ? macdObj.histogram.slice(-testDates.length) : [];
 
-        // Destroy existing
         if (priceChart) priceChart.destroy();
         if (rsiChart) rsiChart.destroy();
         if (macdChart) macdChart.destroy();
 
-        // Price chart
         priceChart = new Chart(document.getElementById('priceChart').getContext('2d'), {
           type: 'line',
           data: {
@@ -383,7 +373,6 @@
           }
         });
 
-        // RSI chart
         rsiChart = new Chart(document.getElementById('rsiChart').getContext('2d'), {
           type:'line',
           data:{
@@ -408,7 +397,6 @@
           }
         });
 
-        // MACD chart
         macdChart = new Chart(document.getElementById('macdChart').getContext('2d'), {
           type:'bar',
           data:{
@@ -438,7 +426,6 @@
       }
     });
 
-    // Watchlist logic
     const watchlistForm = document.getElementById('watchlistForm');
     const watchlistInput = document.getElementById('watchlistInput');
     const watchlistContainer = document.getElementById('watchlist');
@@ -510,4 +497,5 @@
   </script>
 
 </body>
+
 </html>
